@@ -2,7 +2,6 @@ import pyaudio
 import pyttsx3
 import speech_recognition as sr
 import eel
-import sys
 import time
 import multiprocessing
 import os
@@ -12,14 +11,6 @@ from openwakeword.model import Model
 import numpy as np
 
 openwakeword.utils.download_models()
-
-
-def get_base_dir():
-    """Get the base directory for the application."""
-    if getattr(sys, 'frozen', False):  # Running as a PyInstaller executable
-        return os.path.join(sys._MEIPASS, "web")
-    else:  # Running in development
-        return os.path.join(os.path.dirname(__file__), "web")
 
 
 def speak(text):
@@ -32,40 +23,12 @@ def speak(text):
     engine.runAndWait()
 
 
-def start(stop_event):
-    base_dir = get_base_dir()
-    eel.init(base_dir)
-
-    @eel.expose
-    def init():
-        speak("Hello, I am Chakshu")
-
-    # Launch the browser in app mode
-    os.system(f'start msedge.exe --app="http://localhost:8000/index.html"')
-
-    try:
-        eel.start("index.html", mode=None, host="localhost", block=False)
-        # Keep running until the stop_event is set
-        while not stop_event.is_set():
-            eel.sleep(1)
-    except Exception as e:
-        print(f"Error in Eel: {e}")
-    finally:
-        print("Eel process exiting...")
-        
 def chatBot(query):
     print(query)
     speak(query)
     return query
 
 
-def listenHotword(stop_event):
-    print("Hotword listener started...")
-    while not stop_event.is_set():
-        print("Listening for hotword...")
-        hotword()
-        stop_event.wait(5)
-    
 def takecommand():
     r = sr.Recognizer()
 
@@ -87,6 +50,7 @@ def takecommand():
         return ""
 
     return query.lower()
+
 
 @eel.expose
 def allCommands(message=1):
@@ -174,27 +138,37 @@ def hotword():
             paud.terminate()
 
 
+def start():
+    eel.init("web")
+
+    @eel.expose
+    def init():
+        speak("Hello I am Chakshu")
+
+    os.system('start msedge.exe --app="http://localhost:8000/index.html"')
+
+    eel.start("index.html", mode=None, host="localhost", block=True)
+
+
+def startChakshu():
+    print("Process 1 is running.")
+    start()
+
+
+def listenHotword():
+    print("Process 2 is running.")
+    hotword()
+
+
 if __name__ == "__main__":
-    multiprocessing.freeze_support()
-
-    stop_event = multiprocessing.Event()
-
-    p1 = multiprocessing.Process(target=start, args=(stop_event,))
-    p2 = multiprocessing.Process(target=listenHotword, args=(stop_event,))
-
+    p1 = multiprocessing.Process(target=startChakshu)
+    p2 = multiprocessing.Process(target=listenHotword)
     p1.start()
     p2.start()
-
-    try:
-        p1.join()
-    except KeyboardInterrupt:
-        print("Interrupted!")
-
-    stop_event.set()
+    p1.join()
 
     if p2.is_alive():
         p2.terminate()
         p2.join()
 
-    print("System stopped.")
-
+    print("system stop")
