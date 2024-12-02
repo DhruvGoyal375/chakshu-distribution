@@ -3,6 +3,7 @@ import subprocess
 import sys
 import shutil
 from pathlib import Path
+import textwrap
 
 
 def clean_previous_builds():
@@ -16,7 +17,7 @@ def clean_previous_builds():
 
 def create_runtime_hook():
     """Create runtime hook for multiprocessing and scipy/sklearn support"""
-    content = """
+    content = textwrap.dedent("""
         import os
         import sys
         import multiprocessing
@@ -27,10 +28,12 @@ def create_runtime_hook():
                 multiprocessing.set_start_method('spawn')
             except RuntimeError:
                 pass
+
         try:
             import scipy.stats._stats_py
         except ImportError:
             pass
+
         # Fix scipy stats module
         def _fix_scipy_stats():
             try:
@@ -40,7 +43,7 @@ def create_runtime_hook():
                 pass
 
         _fix_scipy_stats()
-        """
+    """)
     with open('runtime_hook.py', 'w') as f:
         f.write(content)
     return os.path.abspath('runtime_hook.py')
@@ -69,10 +72,10 @@ def build_app():
             '-m', 'PyInstaller',
             '--name=ChakshuAssistant',
             '--onefile',
-            '--noconsole',
             f'--add-data={web_dir}{separator}web',
             f'--add-data={models_path}{separator}openwakeword/resources/models',
             '--hidden-import=scipy._lib.messagestream',
+            '--hidden-import=pyttsx3.drivers',
             '--hidden-import=scipy.special.cython_special',
             '--hidden-import=scipy.stats._stats_py',
             '--hidden-import=sklearn.utils._cython_blas',
